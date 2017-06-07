@@ -56,11 +56,21 @@ visualize2d = true; %For 2D plots instead of 3D.
 % VDB                = Cantidad de petroleo dispersado en la sub-superficie
 [FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB] = cantidades_por_dia;
 spillData          = OilSpillData(FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB);
-VAD                 = VectorFieldsADCIRC(0, atmFilePrefix, oceanFilePrefix, uvar, vvar);
+global VF;
+VF                 = VectorFieldsADCIRC(0, atmFilePrefix, oceanFilePrefix, uvar, vvar);
 
-VAD = VAD.readUV(5, 116, modelConfig);
-VAD                 = VAD.readLists(); 
-% VF                 = VectorFields(0, atmFilePrefix2, oceanFilePrefix2, uvar2, vvar2);
+VF = VF.readUV(5, 116, modelConfig);
+VF                 = VF.readLists(); 
+%VF                 = VectorFields(0, atmFilePrefix2, oceanFilePrefix2, uvar2, vvar2);
+Particles          = Particle.empty; % Start the array of particles empty
 
+if any(FechasDerrame == 116)
+        advectingParticles = true; % We should start to reading vector fields and advecting particles
+        % Read from Fechas derrame and init proper number of particles. In a function
+        spillData = spillData.splitByTimeStep(modelConfig, 116);
+end
+
+
+Particles = initParticles(Particles, spillData, modelConfig, 116, 5);
 % VF = VF.readUV(1, 116, modelConfig);
 

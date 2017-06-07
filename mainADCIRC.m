@@ -1,7 +1,8 @@
 % In this new version, the objective is to make the code as efficient as possible
 close all; clear; clc; format compact
 
-%tic()
+tic()
+%===============ADCIRC EXCLUSIVE==============
 addLocalPathsADCIRC()
 
 modelConfig                    = ModelConfig;
@@ -11,11 +12,11 @@ modelConfig                    = ModelConfig;
 % Coordenadas del derrame en el SAV
 modelConfig.lat                =  19.1965;
 modelConfig.lon                = -96.0800;
-modelConfig.startDate          = datetime(2010,04,25); % Year, month, day
+modelConfig.startDate          = datetime(2010,04,23); % Year, month, day
 modelConfig.endDate            = datetime(2010,04,28); % Year, month, day
 % modelConfig.endDate            = datetime(2010,08,26); % Year, month, day
 modelConfig.timeStep           = 6;    % 6 Hours time step
-modelConfig.barrelsPerParticle = 200; % How many barrels of oil are we goin to simulate one particle.
+modelConfig.barrelsPerParticle = 50; % How many barrels of oil are we goin to simulate one particle.
 modelConfig.depths             = [0];
 
 modelConfig.totComponents      = 8;
@@ -25,7 +26,7 @@ modelConfig.colorByComponent   = colorGradient([0 1 0],[0 0 1],modelConfig.totCo
 
 
 modelConfig.windcontrib        = 0.035;   % Wind contribution
-modelConfig.windcontrib        = 10;   % Wind contribution
+% modelConfig.windcontrib        = 10;   % Wind contribution
 modelConfig.turbulentDiff      = 1;       % Turbulent diffusion
 modelConfig.diffusion          = .005;    % Variance (in degrees) for random diffusion when initializing particles
 
@@ -37,6 +38,7 @@ modelConfig.decay.collected    = 1;
 modelConfig.decay.byComponent  = threshold(95,[3, 6, 9, 12, 15, 18, 21, 24],modelConfig.timeStep);
 modelConfig.initPartSize = 10*(24/modelConfig.timeStep); % Initial size of particles vector array of lats, lons, etc.
 
+%===============ADCIRC EXCLUSIVE==============
 atmFilePrefix  = 'fort.74.'; % File prefix for the atmospheric netcdf files
 oceanFilePrefix  = 'fort.64.'; % File prefix for the ocean netcdf files
 %oceanFilePrefix  = 'hycom_2019_'; % File prefix for the ocean netcdf files
@@ -55,6 +57,8 @@ visualize2d = true; %For 2D plots instead of 3D.
 % VDB                = Cantidad de petroleo dispersado en la sub-superficie
 [FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB] = cantidades_por_dia;
 spillData          = OilSpillData(FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB);
+
+%===============ADCIRC EXCLUSIVE==============
 global VF;
 VF                 = VectorFieldsADCIRC(0, atmFilePrefix, oceanFilePrefix, uvar, vvar);
 VF                 = VF.readLists(); 
@@ -104,6 +108,8 @@ for currDay = startDay:endDay
             VF = VF.readUV(currHour, currDay, modelConfig);
 
             % Advect particles
+            
+            %===============ADCIRC EXCLUSIVE==============
             Particles = advectParticlesADCIRC(VF, modelConfig, Particles, nextTime);
             
             % Degrading particles
@@ -144,11 +150,11 @@ for currDay = startDay:endDay
             LiveParticles = findobj(Particles, 'isAlive',true);
             DeadParticles = findobj(Particles, 'isAlive',false);
             if PartIndx2D == 1
-                latlim = [min([LiveParticles.lastLat])-1 max([LiveParticles.lastLat])+1];
-                lonlim= [min([LiveParticles.lastLon])-1 max([LiveParticles.lastLon])+1];
- %                axis([lonlim(1) lonlim(2) latlim(1) latlim(2)]);
+                latlim = [min([LiveParticles.lastLat])-1.5 max([LiveParticles.lastLat])+1.5];
+                lonlim= [min([LiveParticles.lastLon])-1.5 max([LiveParticles.lastLon])+1.5];
+                axis([lonlim(1) lonlim(2) latlim(1) latlim(2)]);
 %                 axis([-100 -92 17 22]);              
-                axis([-96.2 -96 19.10 19.26]); 
+%                 axis([-96.2 -96 19.10 19.26]); 
                 PartIndx2D = 2;
             end
             if  currDay - startDay == 0
@@ -187,7 +193,7 @@ for currDay = startDay:endDay
     
     sprintf('---- Tot Particles %d -----',length(Particles))
 end
-%toc()
+toc()
 
 %% Plotting the results
 %plotParticles(Particles, modelConfig.startDate, modelConfig.endDate, modelConfig.timeStep)
