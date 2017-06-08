@@ -1,6 +1,6 @@
 function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
-    DeltaT = modelConfig.timeStepSec; % Move DT to seconds
-    R = modelConfig.R;                % Mean radious of the earth
+    DeltaT = modelConfig.timeStep*3600; % Move DT to seconds
+    R=6371e+03;                 % Radio medio de la tierra (Gill)
 
     % Get live particles 
     LiveParticles = findobj(Particles, 'isAlive',true);
@@ -28,16 +28,15 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
         lonP = allLon(currPartIndex);
 
         % Get the depth indices for the current particles
-        currDepthRelativeIndx = VF.depthsRelativeIndx(dIndx,:);
         currDepthIndx = VF.depthsIndx(dIndx,:);
 
         % Verify we are in the surface in order to incorporate the wind contribution
         if depth == 0 
-            U = VF.U(:,:,currDepthRelativeIndx(1));
-            V = VF.V(:,:,currDepthRelativeIndx(1));
+            U = VF.U(:,:,currDepthIndx(1))';
+            V = VF.V(:,:,currDepthIndx(1))';
 
-            UT2 = VF.UT2(:,:,currDepthRelativeIndx(1));
-            VT2 = VF.VT2(:,:,currDepthRelativeIndx(1));
+            UT2 = VF.UT2(:,:,currDepthIndx(1))';
+            VT2 = VF.VT2(:,:,currDepthIndx(1))';
 
             % Incorporate the force of the wind (using the rotated winds)
             U = U + VF.UWR*modelConfig.windcontrib;
@@ -47,29 +46,29 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
             VT2 = VT2 + VF.VWRT2*modelConfig.windcontrib;
         else
             % If we are not in the surface, we need to verify if interpolatation for the proper depth is needed
-            if currDepthRelativeIndx(1) == currDepthRelativeIndx(2)
+            if currDepthIndx(1) == currDepthIndx(2)
                 % In this case the particles are exactly in one depth (no need to interpolate)
-                U = VF.U(:,:,currDepthRelativeIndx(1));
-                V = VF.V(:,:,currDepthRelativeIndx(1));
+                U = VF.U(:,:,currDepthIndx(1))';
+                V = VF.V(:,:,currDepthIndx(1))';
 
-                UT2 = VF.UT2(:,:,currDepthRelativeIndx(1));
-                VT2 = VF.VT2(:,:,currDepthRelativeIndx(1));
+                UT2 = VF.UT2(:,:,currDepthIndx(1))';
+                VT2 = VF.VT2(:,:,currDepthIndx(1))';
             else
                 % In this case we need to interpolate the currents to the proper Depth
                 range = VF.depths(currDepthIndx(2)) - VF.depths(currDepthIndx(1));
-        
                 distance = depth - VF.depths(currDepthIndx(1));
                 toMult = distance/range;
-                U = (VF.U(:,:,currDepthRelativeIndx(1)) + ...
-                        toMult.*(VF.U(:,:,currDepthRelativeIndx(2)) - VF.U(:,:,currDepthRelativeIndx(1))));
-                V = (VF.V(:,:,currDepthRelativeIndx(1)) + ...
-                        toMult.*(VF.V(:,:,currDepthRelativeIndx(2)) - VF.V(:,:,currDepthRelativeIndx(1))));
-                UT2 = (VF.UT2(:,:,currDepthRelativeIndx(1)) + ...
-                        toMult.*(VF.UT2(:,:,currDepthRelativeIndx(2)) - VF.UT2(:,:,currDepthRelativeIndx(1))));
-                VT2 = (VF.VT2(:,:,currDepthRelativeIndx(1)) + ...
-                        toMult.*(VF.VT2(:,:,currDepthRelativeIndx(2)) - VF.VT2(:,:,currDepthRelativeIndx(1))));
+                U = (VF.U(:,:,currDepthIndx(1)) + ...
+                        toMult.*(VF.U(:,:,currDepthIndx(2)) - VF.U(:,:,currDepthIndx(1))))';
+                V = (VF.V(:,:,currDepthIndx(1)) + ...
+                        toMult.*(VF.V(:,:,currDepthIndx(2)) - VF.V(:,:,currDepthIndx(1))))';
+                UT2 = (VF.UT2(:,:,currDepthIndx(1)) + ...
+                        toMult.*(VF.UT2(:,:,currDepthIndx(2)) - VF.UT2(:,:,currDepthIndx(1))))';
+                VT2 = (VF.VT2(:,:,currDepthIndx(1)) + ...
+                        toMult.*(VF.VT2(:,:,currDepthIndx(2)) - VF.VT2(:,:,currDepthIndx(1))))';
             end
         end
+
 
         % Interpolate the U and V fields for the particles positions
         Upart = interp2(VF.LON, VF.LAT, U, lonP, latP);
@@ -87,8 +86,8 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
         UhalfPart = interp2(VF.LON, VF.LAT, Uhalf, tempK2Lon, tempK2lat);
         VhalfPart = interp2(VF.LON, VF.LAT, Vhalf, tempK2Lon, tempK2lat);
         % Add turbulent-diffusion
-        Uturb = UhalfPart .* (-modelConfig.turbulentDiff(dIndx) + (2*modelConfig.turbulentDiff(dIndx)) .* rand(size(UhalfPart)));
-        Vturb = VhalfPart .* (-modelConfig.turbulentDiff(dIndx) + (2*modelConfig.turbulentDiff(dIndx)) .* rand(size(VhalfPart)));
+        Uturb = UhalfPart .* (-modelConfig.turbulentDiff + (2*modelConfig.turbulentDiff) .* rand(size(UhalfPart)));
+        Vturb = VhalfPart .* (-modelConfig.turbulentDiff + (2*modelConfig.turbulentDiff) .* rand(size(VhalfPart)));
         UhalfPart = UhalfPart + Uturb;
         VhalfPart = VhalfPart + Vturb;
         % Move particles to dt
@@ -97,26 +96,23 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
 
         % Iterate over the particles and add the new positions
         for idxPart = 1:numParticles
-            % Get current particle id
+            % Get current particle
             particle = LiveParticles(originalIndexes(idxPart));
-            currTimeStep = particle.currTimeStep + 1;
             % Add in one the current time step of the particle
-            particle.currTimeStep = currTimeStep;
-            particle.lats(currTimeStep) = newLatP(idxPart);
-            particle.lons(currTimeStep) = newLonP(idxPart);
-            particle.depths(currTimeStep) = particle.lastDepth;
+            particle.currTimeStep = particle.currTimeStep + 1;
+            particle.lats(particle.currTimeStep) = newLatP(idxPart);
+            particle.lons(particle.currTimeStep) = newLonP(idxPart);
+            %particle.depths(particle.currTimeStep) = particle.lastDepth;
             %particle.lastDepth = particle.lastDepth;% If someday we would like to change the depth
 
             particle.lastLat = newLatP(idxPart);
             particle.lastLon = newLonP(idxPart);
 
             % Update the next time
-            particle.dates(currTimeStep) = nextTime;
+            particle.dates(particle.currTimeStep) = nextTime;
             % Lifetime of the particle in hours
             particle.lifeTime = particle.lifeTime + modelConfig.timeStep;
-    
         end
-
         % Increment the index for the current depth value
         dIndx = dIndx + 1;
     end
