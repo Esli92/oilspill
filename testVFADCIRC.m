@@ -7,8 +7,8 @@ addLocalPaths()
 
 
 modelConfig                    = ModelConfig;
-modelConfig.lat                =  28.738;
-modelConfig.lon                = -88.366;
+modelConfig.lat                =  19.738;
+modelConfig.lon                = -96.366;
 modelConfig.startDate          = datetime(2010,04,22); % Year, month, day
 modelConfig.endDate            = datetime(2010,04,25); % Year, month, day
 % modelConfig.endDate            = datetime(2010,08,26); % Year, month, day
@@ -59,18 +59,25 @@ spillData          = OilSpillData(FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB);
 global VF;
 VF                 = VectorFieldsADCIRC(0, atmFilePrefix, oceanFilePrefix, uvar, vvar);
 
-VF = VF.readUV(5, 116, modelConfig);
-VF                 = VF.readLists(); 
+VF = VF.readUV(22, 114, modelConfig);
+VF                 = VF.readLists();
 %VF                 = VectorFields(0, atmFilePrefix2, oceanFilePrefix2, uvar2, vvar2);
 Particles          = Particle.empty; % Start the array of particles empty
 
 if any(FechasDerrame == 116)
-        advectingParticles = true; % We should start to reading vector fields and advecting particles
-        % Read from Fechas derrame and init proper number of particles. In a function
-        spillData = spillData.splitByTimeStep(modelConfig, 116);
+    advectingParticles = true; % We should start to reading vector fields and advecting particles
+    % Read from Fechas derrame and init proper number of particles. In a function
+    spillData = spillData.splitByTimeStep(modelConfig, 116);
 end
 
 
 Particles = initParticles(Particles, spillData, modelConfig, 116, 5);
+%Find pele of particle
+for ii=1:length(Particles)
+    Particles(ii).pele = findTRIParticleIni2(Particles(ii).lastLon,Particles(ii).lastLat);
+end
 % VF = VF.readUV(1, 116, modelConfig);
 
+lat = -96.08;
+lon = 19.2023;
+peletmp = findTRIParticleIni2(lat,lon)

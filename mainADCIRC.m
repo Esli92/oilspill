@@ -12,11 +12,11 @@ modelConfig                    = ModelConfig;
 % Coordenadas del derrame en el SAV
 modelConfig.lat                =  19.1965;
 modelConfig.lon                = -96.0800;
-modelConfig.startDate          = datetime(2010,04,23); % Year, month, day
+modelConfig.startDate          = datetime(2010,04,26); % Year, month, day
 modelConfig.endDate            = datetime(2010,04,28); % Year, month, day
 % modelConfig.endDate            = datetime(2010,08,26); % Year, month, day
-modelConfig.timeStep           = 6;    % 6 Hours time step
-modelConfig.barrelsPerParticle = 50; % How many barrels of oil are we goin to simulate one particle.
+modelConfig.timeStep           = 3;    % 6 Hours time step
+modelConfig.barrelsPerParticle = 500; % How many barrels of oil are we goin to simulate one particle.
 modelConfig.depths             = [0];
 
 modelConfig.totComponents      = 8;
@@ -61,7 +61,7 @@ spillData          = OilSpillData(FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB);
 %===============ADCIRC EXCLUSIVE==============
 global VF;
 VF                 = VectorFieldsADCIRC(0, atmFilePrefix, oceanFilePrefix, uvar, vvar);
-VF                 = VF.readLists(); 
+VF                 = VF.readLists();
 advectingParticles = false;          % Indicate when should we start reading the UV fields
 Particles          = Particle.empty; % Start the array of particles empty
 
@@ -103,10 +103,15 @@ for currDay = startDay:endDay
         if advectingParticles
             % Add the proper number of particles for this time step
             Particles = initParticles(Particles, spillData, modelConfig, currDay, currHour);
-
+            
+            
             % Read winds and currents
             VF = VF.readUV(currHour, currDay, modelConfig);
-
+            
+            %Find pele of particle
+            for ii=1:length(Particles)
+                Particles(ii).pele = findTRIParticleIni2(Particles(ii).lastLon,Particles(ii).lastLat);
+            end
             % Advect particles
             
             %===============ADCIRC EXCLUSIVE==============
@@ -144,17 +149,19 @@ for currDay = startDay:endDay
             end
             
         end
-
-	if visualize2d
+        
+        if visualize2d
             %plotParticlesSingleTime(Particles, modelConfig, f, currDay - startDay)
             LiveParticles = findobj(Particles, 'isAlive',true);
             DeadParticles = findobj(Particles, 'isAlive',false);
             if PartIndx2D == 1
-                latlim = [min([LiveParticles.lastLat])-1.5 max([LiveParticles.lastLat])+1.5];
-                lonlim= [min([LiveParticles.lastLon])-1.5 max([LiveParticles.lastLon])+1.5];
+%                 latlim = [min([LiveParticles.lastLat])-0.5 max([LiveParticles.lastLat])+0.5];
+%                 lonlim= [min([LiveParticles.lastLon])-0.5 max([LiveParticles.lastLon])+0.5];
+                lonlim = [min(VF.LON) max(VF.LON)];
+                latlim = [min(VF.LAT) max(VF.LAT)];
                 axis([lonlim(1) lonlim(2) latlim(1) latlim(2)]);
-%                 axis([-100 -92 17 22]);              
-%                 axis([-96.2 -96 19.10 19.26]); 
+                %                 axis([-100 -92 17 22]);
+                %                 axis([-96.2 -96 19.10 19.26]);
                 PartIndx2D = 2;
             end
             if  currDay - startDay == 0
@@ -179,8 +186,8 @@ for currDay = startDay:endDay
                 refreshdata
                 drawnow
             end
-	end
-
+        end
+        
         %pause(10)
     end
     

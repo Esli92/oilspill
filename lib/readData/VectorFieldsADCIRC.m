@@ -1,6 +1,8 @@
 classdef VectorFieldsADCIRC
     % This class assumes that the currents are stored in daily files with
-    % 24 hours data and the winds in daily files with 24 hours.
+    % 24 hours data and the winds in daily files with 24 hours. It differs
+    % from the vanilla VectorFields class in that it reads data from a
+    % nonstructured mesh, like ADCIRC fort.64 and fort.74 output.
     properties
         U % U variable for current time
         V % V variable for current time
@@ -21,11 +23,15 @@ classdef VectorFieldsADCIRC
         oceanFilePrefix  % File prefix for the ocean netcdf files
         uvar % Is the name of the variable U inside the netCDF file
         vvar % Is the name of the variable V inside the netCDF file
+        %===============ADCIRC EXCLUSIVE==============
         ELE % Nodes of an Element
         E2E5 %Table of the Elements that surround an element at 5 levels
-        %       PELE % Element where the Particle is
+        PELE % Element where the Particle is
         N2E  % Table of the Elements that surround a node
- 
+        CostaX % Node longitude of Coastline of mesh defined by FORT.14 (Longitude).
+        CostaY % Node latitude of Coastline of mesh defined by FORT.14 (Latitude))
+        TR %Triangulation
+        %==============================================
     end
     properties (Access = private)
         
@@ -61,20 +67,29 @@ classdef VectorFieldsADCIRC
         function obj = readUV(obj, modelHour, modelDay, modelConfig)
             windFileNum = floor(modelHour/obj.windDeltaT)+1;
             windFileT2Num = ceil( (modelHour + obj.myEps)/obj.windDeltaT)+1;
+            
+            %===============ADCIRC EXCLUSIVE==============
+            %We allow to have several oceanFiles, since output has higher
+            %frequency than the previously used ocean model.
             oceanFileNum = floor(modelHour/obj.currentDeltaT)+1;
             oceanFileT2Num = ceil( (modelHour + obj.myEps)/obj.currentDeltaT)+1;
+            %==============================================
             
             % These variables indicate if we have to read new files
             firstRead = false;
             readWindT2 = false;
             readOceanT2 = false;
             readNextDayWind = false;
+            
+            %===============ADCIRC EXCLUSIVE==============
+            %Necessary changes to read several ocean files.
             readNextDayOcean = false;
             
             % Create the file names
             readOceanFile = [obj.oceanFilePrefix,sprintf('%03d',modelDay),'.nc'];
             readOceanFileT2 = [obj.oceanFilePrefix,sprintf('%03d',modelDay+1),'.nc'];
             readWindFile = [obj.atmFilePrefix,num2str(modelDay),'.nc'];
+            %==============================================
             
             % -------------------- Only executed the first time of the model, reads lat,lon,depths and computes depth indexes ----------
             % Verify the first time we get data
@@ -87,11 +102,16 @@ classdef VectorFieldsADCIRC
                 % Read Lat,Lon and Depth from files and create meshgrids for currents and wind
                 lat = double(ncread(readOceanFile,'y'));
                 lon = double(ncread(readOceanFile,'x'));
+                
+                %===============ADCIRC EXCLUSIVE==============
+                %ele now has the elements from the FORT.14 mesh. Since
+                %ADCIRC gives 2D outputs, depths are all zero. 
                 ele = double(ncread(readOceanFile,'element'));
                 %                 pele(1:max(size(ele)))=0;
                 % Since ADCIRC 2D has only surface velocities, we create a
                 % zero vector for 'depths'.
                 obj.depths = zeros(1,1);
+                %==============================================
                 
                 % Setting the minimum and maximum indexes for the depths of the particles
                 
@@ -138,9 +158,23 @@ classdef VectorFieldsADCIRC
                     end
                     currIndx = currIndx + 1;
                 end
+                
+                %===============ADCIRC EXCLUSIVE==============
+                %We cannot make a lat/lon meshgrid with the nonstructured
+                %mesh, so instead we generate vectors for each element. 
                 obj.LON = lon;
                 obj.LAT = lat;
                 obj.ELE = ele';
+                %In here we read the coast nodes to check if particles are
+                %inside the domain.
+                Costa = dlmread('costa.txt');
+                obj.CostaX = obj.LON(Costa);
+                obj.CostaY = obj.LAT(Costa);
+                clear Costa
+                P = [obj.LON obj.LAT];
+                obj.TR = triangulation(obj.ELE,P);
+                %==============================================
+                
                 %                 obj.PELE = pele';
             else
                 % -------------------- This we check every other time that is not the first time ---------------
@@ -148,10 +182,13 @@ classdef VectorFieldsADCIRC
                 if floor(modelHour/obj.windDeltaT)~= floor(obj.currHour/obj.windDeltaT)
                     readWindT2 = true;
                 end
+                
+                %===============ADCIRC EXCLUSIVE==============
                 % Same, but for ocean currents
                 if floor(modelHour/obj.currentDeltaT)~= floor(obj.currHour/obj.currentDeltaT)
                     readOceanT2 = true;
                 end
+                %==============================================
                 
                 % Verify the next time step for the wind is still in this day
                 if windFileT2Num > (24/obj.windDeltaT) &&  (mod(modelHour,obj.windDeltaT) == 0 )
@@ -159,14 +196,19 @@ classdef VectorFieldsADCIRC
                     readWindT2 = true;
                 end
                 
+                %===============ADCIRC EXCLUSIVE==============
                 % Verify the next time step for the ocean currents is still in this day
                 if oceanFileT2Num > (24/obj.currentDeltaT) &&  (mod(modelHour,obj.currentDeltaT) == 0 )
                     readNextDayOcean = true;
                     readOceanT2 = true;
                 end
+                %==============================================
                 
             end
             
+            %===============ADCIRC EXCLUSIVE==============
+            %The method to read the files changed to reflect changes in
+            %file notation for ADCIRC.
             % Verify if we need to read the winds for the next day or the current day
             if readNextDayWind
                 readWindFileT2 = [obj.atmFilePrefix,num2str(modelDay+1),'.nc'];
@@ -180,14 +222,19 @@ classdef VectorFieldsADCIRC
             else
                 readOceanFileT2 = [obj.oceanFilePrefix,num2str(modelDay),'.nc'];
             end
+            %==============================================
             
             % ----------- Reading and organizing the winds ----------------
             % Verify if we need to read the winds for the current day
             % (this will only happens the first time of all)
+            
+            %===============ADCIRC EXCLUSIVE==============
+            %Since we have no depth on the variables, we take out the depth
+            %index to make 2D variables, both in wind and Ocean.
             if firstRead
                 %readOceanFile
-                obj.UD = 100*double(ncread(readOceanFile,obj.uvar,[1, 1],[Inf, 1]));
-                obj.VD = 100*double(ncread(readOceanFile,obj.vvar,[1, 1],[Inf, 1]));
+                obj.UD = double(ncread(readOceanFile,obj.uvar,[1, 1],[Inf, 1]));
+                obj.VD = double(ncread(readOceanFile,obj.vvar,[1, 1],[Inf, 1]));
                 
                 %readWindFile
                 TempUW = double(ncread(readWindFile,'windx',[1, 1],[Inf, 1]));
@@ -195,9 +242,13 @@ classdef VectorFieldsADCIRC
                 %[obj.UWRD, obj.VWRD] = rotangle(TempUW', TempVW');
                 [obj.UWRD, obj.VWRD] = rotangle(TempUW, TempVW);
             end
+            %==============================================
+            
             % Verify if we need to read the winds for the next day
             if readWindT2
                 %readWindFileT2
+                
+                %===============ADCIRC EXCLUSIVE==============
                 %Since the index WindFileT2Num will have illegal value on
                 %day change, we need to use the first one of the next day.
                 if readNextDayWind
@@ -214,6 +265,7 @@ classdef VectorFieldsADCIRC
                 end
                 % Obtain the new 'next' winds
                 [obj.UWRDT2, obj.VWRDT2] = rotangle(TempUW, TempVW);
+                %==============================================
                 
                 % Update the temporal variable that holds U(d_1) - U(d_0)
                 obj.UWRDT2minusUWRDT= (obj.UWRDT2 - obj.UWRD);
@@ -249,15 +301,16 @@ classdef VectorFieldsADCIRC
             % Verify if we need to read the currents of the next day
             
             if readOceanT2
-                %readWindFileT2
-                %Since the index WindFileT2Num will have illegal value on
+                
+                %===============ADCIRC EXCLUSIVE==============
+                %Since the index OceanFileT2Num will have illegal value on
                 %day change, we need to use the first one of the next day.
                 if readNextDayOcean
-                    obj.UDT2 = 100*double(ncread(readOceanFileT2,obj.uvar,[1, 1],[Inf, 1]));
-                    obj.VDT2 = 100*double(ncread(readOceanFileT2,obj.vvar',[1, 1],[Inf, 1]));
+                    obj.UDT2 = double(ncread(readOceanFileT2,obj.uvar,[1, 1],[Inf, 1]));
+                    obj.VDT2 = double(ncread(readOceanFileT2,obj.vvar,[1, 1],[Inf, 1]));
                 else
-                    obj.UDT2 = 100*double(ncread(readOceanFileT2,obj.uvar,[1, oceanFileT2Num],[Inf, 1]));
-                    obj.VDT2 = 100*double(ncread(readOceanFileT2,obj.uvar,[1, oceanFileT2Num],[Inf, 1]));
+                    obj.UDT2 = double(ncread(readOceanFileT2,obj.uvar,[1, oceanFileT2Num],[Inf, 1]));
+                    obj.VDT2 = double(ncread(readOceanFileT2,obj.vvar,[1, oceanFileT2Num],[Inf, 1]));
                 end
                 if ~firstRead % Always except the FIRST time of all
                     % Save the new 'current' currents
@@ -270,6 +323,7 @@ classdef VectorFieldsADCIRC
                 % Update the temporal variable that holds U(d_1) - U(d_0)
                 obj.UDT2minusUDT = (obj.UDT2 - obj.UD);
                 obj.VDT2minusVDT = (obj.VDT2 - obj.VD);
+                
             end
             
             if readOceanT2
@@ -294,17 +348,22 @@ classdef VectorFieldsADCIRC
                 obj.UT2 = obj.UD + ((mod(modelHour,obj.currentDeltaT)+modelConfig.timeStep)/obj.currentDeltaT)*obj.UDT2minusUDT;
                 obj.VT2 = obj.VD + ((mod(modelHour,obj.currentDeltaT)+modelConfig.timeStep)/obj.currentDeltaT)*obj.VDT2minusVDT;
             end
+            %==============================================
             
             % Update the current time that has already been executed (read in this case)
             obj.currDay = modelDay;
             obj.currHour = modelHour;
         end
+        %===============ADCIRC EXCLUSIVE==============
+        %This method allows to read ADCIRC results exclusive data.
         function obj = readLists(obj)
             load el2el5.mat
             obj.E2E5 = el2el5;
             n2e = dlmread('NODE2EL.TBL');
-            obj.N2E = n2e; 
-            clear el2el5 n2e            
+            obj.N2E = n2e;
+            
+            clear el2el5 n2e
         end
+        %==============================================
     end
 end

@@ -6,7 +6,7 @@ global VF;
 
 peleout = xp*0;
 cantP = length(xp);
-offset = 0.1;
+offset = 0.01;
 
 %                 obj.LON = lon;
 %                 obj.LAT = lat;
