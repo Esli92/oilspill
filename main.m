@@ -6,10 +6,11 @@ tic()
 
 
 modelConfig                    = ModelConfig; % Create an object of type ModelConfig
-modelConfig.lat                =  28.738;
-modelConfig.lon                = -88.366;
-modelConfig.startDate          = datetime(2010,04,22); % Year, month, day
-modelConfig.endDate            = datetime(2010,08,24); % Year, month, day
+modelConfig.model              = 'adcirc'
+modelConfig.lat                =  19.1965;
+modelConfig.lon                = -96.08;
+modelConfig.startDate          = datetime(2010,04,26); % Year, month, day
+modelConfig.endDate            = datetime(2010,04,27); % Year, month, day
 modelConfig.timeStep           = 6;    % 6 Hours time step
 modelConfig.barrelsPerParticle = 10; % How many barrels of oil are we goin to simulate one particle.
 %modelConfig.depths             = [0 3 350 700 1100]; % First index MUST be 0 (surface)
@@ -24,7 +25,7 @@ modelConfig.components         = [[.1 .1 .1 .1 .1 .1 .1 .3]; ...
 
 modelConfig.totComponents      = length(modelConfig.components(1,:)); 
 
-modelConfig.visualize          = false; % Indicates if we want to visualize the results as the model runs.
+modelConfig.visualize          = true; % Indicates if we want to visualize the results as the model runs.
 modelConfig.saveImages         = false; % Indicate if we want to save the generated images
 %modelConfig.colorByComponent   = colorGradient([1 1 1],[0 0 .7],modelConfig.totComponents)% Creates the colors of the oil
 modelConfig.colorByComponent   = [ [1 0 0]; [.89 .69 .17]; [1 1 0]; [0 0 1]; [0 1 0]; [0 1 1]; [0 0 1]; [1 0 1];[.7 0 .7]];
