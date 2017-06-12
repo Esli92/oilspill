@@ -54,4 +54,5 @@ function [thresholds,dailyDecayRates]  = threshold(exp_deg_Percentage,exp_deg_Da
   k = -log(1-exp_deg_Percentage/100)./time_percent_decay;
   % Compute thresholds
   thresholds = 1-k;
+
 end

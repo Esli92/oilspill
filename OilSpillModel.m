@@ -11,7 +11,19 @@ function OilSpillModel(modelConfig)
 % VDB                = Cantidad de petroleo dispersado en la sub-superficie
 [FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB] = cantidades_por_dia;
 spillData          = OilSpillData(FechasDerrame,SurfaceOil,VBU,VE,VNW,VDB);
-VF                 = VectorFields();
+%Check model type
+if strcmp(modelConfig.model,'hycom')
+    VF                 = VectorFields();
+elseif strcmp(modelConfig.model,'adcirc')
+    %===============ADCIRC EXCLUSIVE==============
+    atmFilePrefix  = 'fort.74.'; % File prefix for the atmospheric netcdf files
+    oceanFilePrefix  = 'fort.64.'; % File prefix for the ocean netcdf files
+    uvar = 'u-vel';
+    vvar = 'v-vel';
+    VF                 = VectorFieldsADCIRC(0, atmFilePrefix, oceanFilePrefix, uvar, vvar);
+    VF                 = VF.readLists();
+    VF = VF.readUV(0, 115, modelConfig);
+end
 advectingParticles = false;          % Indicate when should we start reading the UV fields
 Particles          = Particle.empty; % Start the array of particles empty
 
@@ -46,7 +58,11 @@ for currDay = startDay:endDay
         VF = VF.readUV(currHour, currDay, modelConfig);
         
         % Advect particles
-        Particles = advectParticles(VF, modelConfig, Particles, nextTime);
+	if strcmp(modelConfig.model,'hycom')
+                    Particles = advectParticles(VF, modelConfig, Particles, nextTime);
+        elseif strcmp(modelConfig.model,'adcirc')
+                    Particles = advectParticlesADCIRC(VF, modelConfig, Particles, nextTime);
+        end
         
         % Degrading particles
         Particles = oilDegradation(Particles, modelConfig, spillData);

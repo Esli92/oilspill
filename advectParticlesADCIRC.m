@@ -1,4 +1,4 @@
-function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
+function Particles = advectParticlesADCIRC(VF, modelConfig, Particles, nextTime)
     DeltaT = modelConfig.timeStep*3600; % Move DT to seconds
     R=6371e+03;                 % Radio medio de la tierra (Gill)
 
@@ -12,6 +12,9 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
     % All lats and lons
     allLat = [LiveParticles.lastLat];
     allLon = [LiveParticles.lastLon];
+    
+    % Get Last Element position of the Particles
+    pele = [LiveParticles.pele];
 
     % Iterate over the different depths
     dIndx= 1; % Current depth index
@@ -32,11 +35,11 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
 
         % Verify we are in the surface in order to incorporate the wind contribution
         if depth == 0 
-            U = VF.U(:,:,currDepthIndx(1))';
-            V = VF.V(:,:,currDepthIndx(1))';
+            U = VF.U;
+            V = VF.V;
 
-            UT2 = VF.UT2(:,:,currDepthIndx(1))';
-            VT2 = VF.VT2(:,:,currDepthIndx(1))';
+            UT2 = VF.UT2;
+            VT2 = VF.VT2;
 
             % Incorporate the force of the wind (using the rotated winds)
             U = U + VF.UWR*modelConfig.windcontrib;
@@ -71,8 +74,14 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
 
 
         % Interpolate the U and V fields for the particles positions
-        Upart = interp2(VF.LON, VF.LAT, U, lonP, latP);
-        Vpart = interp2(VF.LON, VF.LAT, V, lonP, latP);
+%         Upart = interp2(VF.LON, VF.LAT, U, lonP, latP);
+%         Vpart = interp2(VF.LON, VF.LAT, V, lonP, latP);
+%         Upart = interpTRI1(VF.LON, VF.LAT, U, lonP, latP);
+%         Vpart = interpTRI1(VF.LON, VF.LAT, V, lonP, latP);  
+        Upart = interpTRI2(VF.LON, VF.LAT, VF.ELE, pele, U, lonP, latP);
+        Vpart = interpTRI2(VF.LON, VF.LAT, VF.ELE, pele, V, lonP, latP);  
+%         size(Upart)
+%         size(latP)
         % Move particles to dt/2 (Runge Kutta 2)
         k1lat = (DeltaT*Vpart)*(180/(R*pi));
         k1lon = ((DeltaT*Upart)*(180/(R*pi))).*cosd(latP);
@@ -83,8 +92,12 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
         Uhalf = U + (UT2 - U)/2;
         Vhalf = V + (VT2 - V)/2;
         % Interpolate U and V to New particles positions using U at dt/2
-        UhalfPart = interp2(VF.LON, VF.LAT, Uhalf, tempK2Lon, tempK2lat);
-        VhalfPart = interp2(VF.LON, VF.LAT, Vhalf, tempK2Lon, tempK2lat);
+%         UhalfPart = interp2(VF.LON, VF.LAT, Uhalf, tempK2Lon, tempK2lat);
+%         VhalfPart = interp2(VF.LON, VF.LAT, Vhalf, tempK2Lon, tempK2lat);
+%         UhalfPart = interpTRI1(VF.LON, VF.LAT, Uhalf, tempK2Lon, tempK2lat);
+%         VhalfPart = interpTRI1(VF.LON, VF.LAT, Vhalf, tempK2Lon, tempK2lat);  
+        UhalfPart = interpTRI2(VF.LON, VF.LAT, VF.ELE, pele, Uhalf, tempK2Lon, tempK2lat);
+        VhalfPart = interpTRI2(VF.LON, VF.LAT, VF.ELE, pele, Vhalf, tempK2Lon, tempK2lat);          
         % Add turbulent-diffusion
         Uturb = UhalfPart .* (-modelConfig.turbulentDiff + (2*modelConfig.turbulentDiff) .* rand(size(UhalfPart)));
         Vturb = VhalfPart .* (-modelConfig.turbulentDiff + (2*modelConfig.turbulentDiff) .* rand(size(VhalfPart)));
@@ -104,14 +117,23 @@ function Particles = advectParticles(VF, modelConfig, Particles, nextTime)
             particle.lons(particle.currTimeStep) = newLonP(idxPart);
             %particle.depths(particle.currTimeStep) = particle.lastDepth;
             %particle.lastDepth = particle.lastDepth;% If someday we would like to change the depth
-
+            
             particle.lastLat = newLatP(idxPart);
             particle.lastLon = newLonP(idxPart);
-
+            
             % Update the next time
             particle.dates(particle.currTimeStep) = nextTime;
             % Lifetime of the particle in hours
             particle.lifeTime = particle.lifeTime + modelConfig.timeStep;
+            
+%             if ~(inside(pele(idxPart),newLonP(idxPart),newLatP(idxPart)))
+%                 particle.pele = findTRIParticle(pele(idxPart),newLonP(idxPart),newLatP(idxPart));
+%                 if (particle.pele == 0)
+%                     particle.isAlive = 0;
+%                     particle.status  = 'L';
+%                 end
+%             end
+            
         end
         % Increment the index for the current depth value
         dIndx = dIndx + 1;

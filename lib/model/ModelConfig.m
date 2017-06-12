@@ -24,6 +24,7 @@ classdef ModelConfig
       saveImages         % Boolean varaible that indidcates if we are saving the figures to images
       outputFolder       % String with the path of the output folder
       R                  % Mean radious of earth
+      model              %Model used, adcirc or hycom.
    end
    % TODO constructor that initializes all these fields and validates the input
    methods

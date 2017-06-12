@@ -6,11 +6,13 @@ outputFolder = addLocalPaths();
 modelConfig = ModelConfig;
 modelConfig.outputFolder = outputFolder;
 %---------------------------- Spill location -----------------------------%
-modelConfig.lat =  28.738;
-modelConfig.lon = -88.366;
+modelConfig.lat =  19.1965;
+modelConfig.lon = -96.08;
 %----------------------- Spill timing (yyyy,mm,dd) -----------------------%
 modelConfig.startDate = datetime(2010,04,22);
 modelConfig.endDate   = datetime(2010,04,26);
+%----------------------- Model Type--------------- -----------------------%
+modelConfig.model              = 'adcirc'
 %---------------- Oil barrels representing one particle ------------------%
 modelConfig.barrelsPerParticle = 10;
 %----------------------- Lagrangian time step (h) ------------------------%

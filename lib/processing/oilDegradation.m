@@ -1,7 +1,7 @@
 function Particles = oilDegradation(Particles, modelConfig, spillData)
 
 % Verify that we need to degrade something
-if modelConfig.decay.evaporate == 1 || modelConfig.decay.exp_degradation == 1 ||...
+if modelConfig.decay.evaporate == 1 || modelConfig.decay.biodeg == 1 ||...
         modelConfig.decay.burned == 1 || modelConfig.decay.collected == 1
      
     % Define the number of particles we need to degradate
@@ -11,52 +11,47 @@ if modelConfig.decay.evaporate == 1 || modelConfig.decay.exp_degradation == 1 ||
 
     burning_radius = modelConfig.decay.burned_radius;
 
+
     % Get the live particles
     LiveParticles = findobj(Particles, 'isAlive',true);
 
     % How many particles we have
     numParticles = length(LiveParticles);
 
-    % Ordered indexes
-    particlesIndex = 1:numParticles;
+    % Shufle the particles
+    random_particles = randperm(numParticles);
 
     % Degradated
-    if modelConfig.decay.exp_degradation == 1
+    if modelConfig.decay.biodeg == 1
 
         % Select all the components for the live particles
-        allComponents=  [LiveParticles.component];
+        ParticleComponents=  [LiveParticles.component];
 
         % Choose how many will be biodegradated
-        partToKill= find(rand(1, numParticles) > modelConfig.decay.exp_deg.byComponent(allComponents));
+%         numParticles
+        partToKill= rand(1, numParticles) > modelConfig.decay.byComponent(ParticleComponents);
 
         % Modify the selected particles    
-        for finalIndex = partToKill
+        for finalIndex = random_particles(partToKill)
             LiveParticles(finalIndex).isAlive = 0;
             LiveParticles(finalIndex).status  = 'D';
         end
 
         % Remove the particles that have been already degraded
-        particlesIndex = particlesIndex(~partToKill);
+        random_particles =  random_particles(~partToKill);
     end
 
-    % Shufle the particles
-    random_particles = particlesIndex(randperm(length(particlesIndex)));
-
-    % Compute the number of particles to evaporate, burn and recover (statistically) from fractional value
-    toEvaporate = floor( spillData.ts_evaporated ) +  (( spillData.ts_evaporated - floor( spillData.ts_evaporated ) ) > rand(1));
-    toBurn = floor( spillData.ts_burned ) +  (( spillData.ts_burned - floor( spillData.ts_burned ) ) > rand(1));
-    toRecover = floor( spillData.ts_recovered ) +  (( spillData.ts_recovered - floor( spillData.ts_recovered ) ) > rand(1));
     % For the rest of the live particles, keep degrading
     for partIndx = random_particles
         component_p = LiveParticles(partIndx).component;
         % Evaporated
-        if modelConfig.decay.evaporate == 1 && parts_evaporated < toEvaporate &&...
+        if modelConfig.decay.evaporate == 1 && parts_evaporated < spillData.ts_evaporated &&...
                 ismember(component_p,1:4)
             LiveParticles(partIndx).isAlive = 0;
             LiveParticles(partIndx).status  = 'E';
             parts_evaporated = parts_evaporated + 1;
             % Burned
-        elseif modelConfig.decay.burned == 1 && parts_burned < toBurn
+        elseif modelConfig.decay.burned == 1 && parts_burned < spillData.ts_burned
             % Calculate the distance from source
             ind = LiveParticles(partIndx).currTimeStep;
             lat_p = LiveParticles(partIndx).lats(ind);
@@ -74,7 +69,7 @@ if modelConfig.decay.evaporate == 1 || modelConfig.decay.exp_degradation == 1 ||
                 parts_burned = parts_burned + 1;
             end
             % Collected
-        elseif modelConfig.decay.collected == 1 && parts_collected <  toRecover
+        elseif modelConfig.decay.collected == 1 && parts_collected <  spillData.ts_recovered
             LiveParticles(partIndx).isAlive = 0;
             LiveParticles(partIndx).status  = 'C';
             parts_collected = parts_collected + 1;
