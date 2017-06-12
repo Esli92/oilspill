@@ -9,8 +9,8 @@ modelConfig.outputFolder = outputFolder;
 modelConfig.lat =  28.738;
 modelConfig.lon = -88.366;
 %----------------------- Spill timing (yyyy,mm,dd) -----------------------%
-modelConfig.startDate = datetime(2010,08,22);
-modelConfig.endDate   = datetime(2010,09,24);
+modelConfig.startDate = datetime(2010,04,22);
+modelConfig.endDate   = datetime(2010,04,26);
 %---------------- Oil barrels representing one particle ------------------%
 modelConfig.barrelsPerParticle = 10;
 %----------------------- Lagrangian time step (h) ------------------------%
