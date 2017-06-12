@@ -96,6 +96,22 @@ for ii=1:length(Particles)
 end
 % VF = VF.readUV(1, 116, modelConfig);
 
-lat = -96.08;
-lon = 19.2023;
-peletmp = findTRIParticleIni2(lat,lon)
+% lat = -96.08;
+% lon = 19.2023;
+% peletmp = findTRIParticleIni2(lat,lon)
+nextTime = toSerialDate(modelConfig.startDate.Year,116, 5+modelConfig.timeStep);
+Particles = advectParticlesADCIRC(VF, modelConfig, Particles, nextTime);
+
+modelConfig.visualize = true
+if modelConfig.visualize
+  currentVis = VisualizeParticles;
+  currentVis.drawGulf2d();
+end
+
+currTime = toSerialDate(modelConfig.startDate.Year, 116, 5);
+
+if modelConfig.visualize
+        %currentVis = currentVis.drawLiveParticles3D(Particles, modelConfig, currTime);
+        %currentVis = currentVis.drawLiveParticles2D(Particles, modelConfig, currTime);
+        currentVis = currentVis.drawParticles2DCoastline(VF,Particles,modelConfig,currTime,7,116);
+end
